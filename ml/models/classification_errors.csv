@@ -1,0 +1,14 @@
+image,true_class,predicted_class,confidence
+data/test/autres/HFMD_HFMD_125_01.jpg,autres,mpox,0.5335
+data/test/autres/HFMD_HFMD_18_01.jpg,autres,peau_saine,0.4088
+data/test/autres/Measles_MSL_23_02.jpg,autres,mpox,0.598
+data/test/mpox/Monkeypox_MKP_111_01.jpg,mpox,autres,0.6748
+data/test/mpox/Monkeypox_MKP_28_03.jpg,mpox,varicelle,0.3621
+data/test/mpox/Monkeypox_MKP_71_01.jpg,mpox,peau_saine,0.4317
+data/test/mpox/Monkeypox_MKP_71_02.jpg,mpox,autres,0.4101
+data/test/mpox/Monkeypox_MKP_71_03.jpg,mpox,autres,0.4647
+data/test/peau_saine/Healthy_HEALTHY_11_01.jpg,peau_saine,autres,0.6956
+data/test/peau_saine/Healthy_HEALTHY_68_01.jpg,peau_saine,mpox,0.3248
+data/test/peau_saine/Healthy_HEALTHY_79_01.jpg,peau_saine,autres,0.6773
+data/test/varicelle/Chickenpox_CHP_08_02.jpg,varicelle,mpox,0.4362
+data/test/varicelle/Chickenpox_CHP_14_02.jpg,varicelle,mpox,0.4775

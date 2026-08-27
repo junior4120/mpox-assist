@@ -1,0 +1,55 @@
+# Python environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+**/venv/
+
+# Env
+.env
+
+# Base de données locale
+*.db
+
+# Uploads (données potentiellement sensibles)
+backend/uploads/
+
+# Datasets
+data/raw/*
+data/raw_v2/*
+data/processed/*
+data/train/*
+data/validation/*
+data/test/*
+!data/**/README.md
+
+# Modèles entraînés (volumineux, à gérer via Git LFS ou stockage externe)
+ml/export/*.pt
+ml/export/*.onnx
+ml/export/*.tflite
+ml/export/*.h5
+ml/export/*.keras
+ml/models/*.pth
+ml/models/*.pt
+# Node / React
+web/node_modules/
+web/dist/
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Tests
+
+# Images médicales d'analyse d'erreurs
+data/error_analysis/mpox_errors/
+ml/models/gradcam_errors/
+
+# Python caches
+.pytest_cache/
+*.egg-info/
