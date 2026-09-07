@@ -1,0 +1,23 @@
+[
+    {
+        "model": "mobilenetv3",
+        "test_accuracy": 0.8243243243243243,
+        "test_f1_macro": 0.8027233115468411,
+        "test_recall_macro": 0.7889527458492975,
+        "test_recall_mpox": 0.8148148148148148
+    },
+    {
+        "model": "densenet121",
+        "test_accuracy": 0.5945945945945946,
+        "test_f1_macro": 0.43229166666666663,
+        "test_recall_macro": 0.44827586206896547,
+        "test_recall_mpox": 0.6666666666666666
+    },
+    {
+        "model": "xception",
+        "test_accuracy": 0.6756756756756757,
+        "test_f1_macro": 0.530812690134724,
+        "test_recall_macro": 0.5408684546615581,
+        "test_recall_mpox": 0.8148148148148148
+    }
+]
