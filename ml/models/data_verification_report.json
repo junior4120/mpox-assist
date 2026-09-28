@@ -1,0 +1,70 @@
+{
+  "data_dir": "data",
+  "counts": {
+    "train": {
+      "autres": 202,
+      "mpox": 202,
+      "peau_saine": 83,
+      "varicelle": 49
+    },
+    "validation": {
+      "autres": 51,
+      "mpox": 55,
+      "peau_saine": 22,
+      "varicelle": 16
+    },
+    "test": {
+      "autres": 29,
+      "mpox": 27,
+      "peau_saine": 9,
+      "varicelle": 9
+    }
+  },
+  "totals_per_split": {
+    "train": 536,
+    "validation": 144,
+    "test": 74
+  },
+  "totals_per_class": {
+    "autres": 282,
+    "mpox": 284,
+    "peau_saine": 114,
+    "varicelle": 74
+  },
+  "corrupted_images": [],
+  "exact_duplicates_within_split": [],
+  "leakage_across_splits": [],
+  "near_duplicates": [
+    {
+      "distance": 0,
+      "image_a": {
+        "split": "train",
+        "class": "autres",
+        "path": "data/train/autres/HFMD_HFMD_96_01.jpg"
+      },
+      "image_b": {
+        "split": "test",
+        "class": "autres",
+        "path": "data/test/autres/HFMD_HFMD_130_01.jpg"
+      },
+      "cross_split": true
+    },
+    {
+      "distance": 2,
+      "image_a": {
+        "split": "train",
+        "class": "peau_saine",
+        "path": "data/train/peau_saine/Healthy_HEALTHY_21_01.jpg"
+      },
+      "image_b": {
+        "split": "train",
+        "class": "peau_saine",
+        "path": "data/train/peau_saine/Healthy_HEALTHY_77_01.jpg"
+      },
+      "cross_split": false
+    }
+  ],
+  "near_duplicate_check_enabled": true,
+  "class_folder_mismatches": [],
+  "grand_total": 754
+}

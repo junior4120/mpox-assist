@@ -15,6 +15,7 @@ from sklearn.metrics import (
     f1_score,
     recall_score,
 )
+from sklearn.utils.class_weight import compute_class_weight
 import matplotlib.pyplot as plt
 
 # timm est nécessaire pour Xception (absent de torchvision)
@@ -37,8 +38,20 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 IMAGE_SIZE = 224
 BATCH_SIZE = 16
-NUM_EPOCHS = 15
+
+# CHANGEMENT 2/2 : NUM_EPOCHS devient un PLAFOND de sécurité, pas un nombre
+# fixe. L'arrêt réel est piloté par l'early stopping (voir EARLY_STOPPING_*).
+# Relevé de 15 à 25 pour ne pas couper DenseNet121/Xception avant convergence
+# (ils n'avaient pas plateauté à l'epoch 15 lors du round précédent).
+NUM_EPOCHS = 25
 LEARNING_RATE = 1e-4
+
+# Early stopping : arrêt si le recall mpox en validation ne s'améliore pas
+# pendant EARLY_STOPPING_PATIENCE epochs consécutives. On surveille le
+# recall mpox (et non val_loss) pour rester cohérent avec la priorité du
+# projet (section 1 du protocole : privilégier le recall mpox).
+EARLY_STOPPING_PATIENCE = 5
+EARLY_STOPPING_MIN_EPOCHS = 5  # ne jamais s'arrêter avant ce nombre d'epochs
 
 SEED = 42
 
@@ -85,10 +98,6 @@ def get_device():
 # ============================================================
 # TRANSFORMATIONS
 # ============================================================
-# Xception est nativement entraîné en 299x299 dans la plupart des poids
-# ImageNet, mais fonctionne aussi en 224x224 sans erreur (pooling adaptatif).
-# On garde IMAGE_SIZE unique pour une comparaison strictement équitable
-# entre les 3 architectures (mêmes données, même résolution).
 
 train_transforms = transforms.Compose([
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
@@ -150,6 +159,34 @@ def create_datasets():
 
 
 # ============================================================
+# CLASS WEIGHTS — CHANGEMENT 1/2
+# ============================================================
+# Calculés UNIQUEMENT sur le train (jamais val/test, pour éviter toute
+# fuite d'information). Méthode 'balanced' de sklearn : poids inversement
+# proportionnel à la fréquence de la classe. train_dataset.classes est
+# trié alphabétiquement par ImageFolder, donc aligné avec CLASS_NAMES
+# (vérifié par le raise ValueError existant dans train()).
+
+def compute_class_weights(train_dataset, device):
+
+    targets = np.array(train_dataset.targets)
+
+    class_ids = np.arange(len(CLASS_NAMES))
+
+    weights = compute_class_weight(
+        class_weight="balanced",
+        classes=class_ids,
+        y=targets
+    )
+
+    print("\nPoids de classe (balanced, calculés sur le train) :")
+    for name, w in zip(CLASS_NAMES, weights):
+        print(f"  {name:<12} : {w:.4f}")
+
+    return torch.tensor(weights, dtype=torch.float32).to(device)
+
+
+# ============================================================
 # DATALOADERS
 # ============================================================
 
@@ -187,11 +224,8 @@ def create_dataloaders(
 
 
 # ============================================================
-# MODÈLE — FACTORY MULTI-ARCHITECTURES
+# MODÈLE — FACTORY MULTI-ARCHITECTURES (inchangé)
 # ============================================================
-# Chaque architecture est créée pré-entraînée ImageNet, backbone gelé,
-# seule la tête de classification est ré-entraînée (même logique que
-# le MobileNetV3 d'origine) pour que la comparaison soit équitable.
 
 def create_model(arch, num_classes):
 
@@ -233,15 +267,12 @@ def create_model(arch, num_classes):
 
     elif arch == "xception":
 
-        # torchvision n'a pas Xception : on passe par timm.
         model = timm.create_model(
             "xception",
             pretrained=True,
             num_classes=num_classes
         )
 
-        # On gèle tout le backbone, puis on dégèle uniquement
-        # la tête de classification finale ("fc" chez timm.Xception).
         for param in model.parameters():
             param.requires_grad = False
 
@@ -255,7 +286,6 @@ def create_model(arch, num_classes):
 
 
 def get_model_paths(arch):
-    """Chemins de sortie (modèle, métriques, matrice) propres à chaque arch."""
 
     return {
         "model": OUTPUT_DIR / f"{arch}_mpox_best.pth",
@@ -265,7 +295,7 @@ def get_model_paths(arch):
 
 
 # ============================================================
-# ÉVALUATION
+# ÉVALUATION (inchangé)
 # ============================================================
 
 def evaluate(model, loader, criterion, device):
@@ -349,7 +379,7 @@ def evaluate(model, loader, criterion, device):
 
 
 # ============================================================
-# MATRICE DE CONFUSION
+# MATRICE DE CONFUSION (inchangé)
 # ============================================================
 
 def save_confusion_matrix(labels, predictions, arch, save_path):
@@ -407,7 +437,8 @@ def save_confusion_matrix(labels, predictions, arch, save_path):
 # ENTRAÎNEMENT D'UNE ARCHITECTURE
 # ============================================================
 
-def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
+def train_one_architecture(arch, train_loader, val_loader, test_loader,
+                            class_weights, device):
 
     print("\n================================")
     print(f"   ENTRAÎNEMENT : {arch.upper()}")
@@ -422,7 +453,8 @@ def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
 
     model = model.to(device)
 
-    criterion = nn.CrossEntropyLoss()
+    # CHANGEMENT 1/2 : loss pondérée par classe
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
 
     optimizer = torch.optim.Adam(
         filter(
@@ -433,6 +465,8 @@ def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
     )
 
     best_mpox_recall = -1
+    epochs_without_improvement = 0
+    stopped_epoch = NUM_EPOCHS  # valeur par défaut si le plafond est atteint
 
     history = []
 
@@ -504,6 +538,7 @@ def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
         if val_mpox_recall > best_mpox_recall:
 
             best_mpox_recall = val_mpox_recall
+            epochs_without_improvement = 0
 
             torch.save(
                 {
@@ -516,6 +551,22 @@ def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
             )
 
             print(f"✓ [{arch}] Meilleur modèle sauvegardé.")
+
+        else:
+            epochs_without_improvement += 1
+
+        # CHANGEMENT 2/2 : early stopping (après un minimum d'epochs)
+        if (epoch + 1) >= EARLY_STOPPING_MIN_EPOCHS and \
+                epochs_without_improvement >= EARLY_STOPPING_PATIENCE:
+
+            stopped_epoch = epoch + 1
+
+            print(
+                f"\n⏹ [{arch}] Early stopping à l'epoch {stopped_epoch} "
+                f"(aucune amélioration du recall mpox depuis "
+                f"{EARLY_STOPPING_PATIENCE} epochs)."
+            )
+            break
 
     # ----------------------------
     # Test final pour cette architecture
@@ -575,7 +626,14 @@ def train_one_architecture(arch, train_loader, val_loader, test_loader, device):
         "classes": CLASS_NAMES,
         "image_size": IMAGE_SIZE,
         "batch_size": BATCH_SIZE,
-        "epochs": NUM_EPOCHS,
+        "max_epochs": NUM_EPOCHS,
+        "stopped_epoch": stopped_epoch,
+        "early_stopping_patience": EARLY_STOPPING_PATIENCE,
+        "class_weights": {
+            name: float(w) for name, w in zip(CLASS_NAMES, class_weights.cpu().numpy())
+        },
+        "learning_rate": LEARNING_RATE,
+        "seed": SEED,
         "test_accuracy": test_accuracy,
         "test_f1_macro": test_f1,
         "test_recall_macro": test_recall,
@@ -620,6 +678,7 @@ def save_comparison(all_results):
             "test_f1_macro": r["test_f1_macro"],
             "test_recall_macro": r["test_recall_macro"],
             "test_recall_mpox": r["test_recall_mpox"],
+            "stopped_epoch": r["stopped_epoch"],
         }
         for r in all_results
     ]
@@ -637,7 +696,6 @@ def save_comparison(all_results):
             ensure_ascii=False
         )
 
-    # Graphique comparatif en barres groupées
     metrics_to_plot = [
         "test_accuracy",
         "test_f1_macro",
@@ -679,7 +737,10 @@ def save_comparison(all_results):
     print("     COMPARAISON FINALE")
     print("================================\n")
 
-    header = f"{'Modèle':<15}{'Accuracy':>10}{'F1 macro':>10}{'Recall':>10}{'Recall Mpox':>13}"
+    header = (
+        f"{'Modèle':<15}{'Accuracy':>10}{'F1 macro':>10}"
+        f"{'Recall':>10}{'Recall Mpox':>13}{'Epoch stop':>12}"
+    )
     print(header)
     print("-" * len(header))
 
@@ -690,6 +751,7 @@ def save_comparison(all_results):
             f"{row['test_f1_macro']:>10.4f}"
             f"{row['test_recall_macro']:>10.4f}"
             f"{row['test_recall_mpox']:>13.4f}"
+            f"{row['stopped_epoch']:>12}"
         )
 
     print(f"\nRésumé JSON : {comparison_path}")
@@ -728,6 +790,8 @@ def train(architectures):
             "L'ordre des classes ne correspond pas à CLASS_NAMES."
         )
 
+    class_weights = compute_class_weights(train_dataset, device)
+
     train_loader, val_loader, test_loader = create_dataloaders(
         train_dataset,
         val_dataset,
@@ -743,6 +807,7 @@ def train(architectures):
             train_loader,
             val_loader,
             test_loader,
+            class_weights,
             device
         )
 

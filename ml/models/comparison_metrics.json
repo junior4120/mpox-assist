@@ -1,23 +1,26 @@
 [
     {
         "model": "mobilenetv3",
-        "test_accuracy": 0.8243243243243243,
-        "test_f1_macro": 0.8027233115468411,
-        "test_recall_macro": 0.7889527458492975,
-        "test_recall_mpox": 0.8148148148148148
+        "test_accuracy": 0.7027027027027027,
+        "test_f1_macro": 0.6717532467532467,
+        "test_recall_macro": 0.7445721583652618,
+        "test_recall_mpox": 0.5185185185185185,
+        "stopped_epoch": 17
     },
     {
         "model": "densenet121",
-        "test_accuracy": 0.5945945945945946,
-        "test_f1_macro": 0.43229166666666663,
-        "test_recall_macro": 0.44827586206896547,
-        "test_recall_mpox": 0.6666666666666666
+        "test_accuracy": 0.5,
+        "test_f1_macro": 0.472145828028181,
+        "test_recall_macro": 0.502234993614304,
+        "test_recall_mpox": 0.6296296296296297,
+        "stopped_epoch": 12
     },
     {
         "model": "xception",
-        "test_accuracy": 0.6756756756756757,
-        "test_f1_macro": 0.530812690134724,
-        "test_recall_macro": 0.5408684546615581,
-        "test_recall_mpox": 0.8148148148148148
+        "test_accuracy": 0.7027027027027027,
+        "test_f1_macro": 0.6662179813941633,
+        "test_recall_macro": 0.6532567049808429,
+        "test_recall_mpox": 0.7777777777777778,
+        "stopped_epoch": 16
     }
 ]
